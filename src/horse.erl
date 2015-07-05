@@ -35,13 +35,28 @@ mod_perf(Mod) when is_atom(Mod) ->
 	ok.
 
 fun_perf(Mod, Fun) when is_atom(Mod), is_atom(Fun) ->
-	%% Proper run.
-	Before = os:timestamp(),
-	_Val = Mod:Fun(),
-	After = os:timestamp(),
-	%% Results.
-	Time = timer:now_diff(After, Before),
-	"horse_" ++ Name = atom_to_list(Fun),
-	io:format("~s:~s in ~b.~6.10.0bs~n",
-		[Mod, Name, Time div 1000000, Time rem 1000000]),
+	Self = self(),
+	Ref = make_ref(),
+	spawn_link(
+		fun() ->
+			Before = os:timestamp(),
+			_Val = Mod:Fun(),
+			After = os:timestamp(),
+			
+			% Results.
+			Time = timer:now_diff(After, Before),
+			"horse_" ++ Name = atom_to_list(Fun),
+			io:format("~s:~s in ~b.~6.10.0bs~n",
+				[Mod, Name, Time div 1000000, Time rem 1000000]),
+			Self ! {test_complete, Ref}
+		end),
+
+	% await test completion
+	receive
+	    {test_complete, Ref} ->
+	    	ok
+	after
+		12000 ->
+			error({timeout, Mod, Fun})
+	end,
 	ok.
