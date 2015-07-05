@@ -29,21 +29,36 @@ replace_calls(Forms) ->
 
 replace_call(
 	{function, Fu, Name, 0, [
-		{clause, Cl, [], [], [
-			{call, Ca, {remote, _, {atom, _, horse}, {atom, _, repeat}}, [
-				Repeat,
-				Expr
-			]}
-		]}
+		{clause, Cl, [], [], Func_forms_1}
 	]}
-) when Repeat > 0 ->
+) ->
+	MFoldl_fn =
+		fun(E, Acc) ->
+			expand_calls_to_repeat(Name, E, Acc)
+		end,
+	{Func_forms_2, Gen_funs} = lists:mapfoldl(MFoldl_fn, [], Func_forms_1),
+
+	Function =
+		{function, Fu, Name, 0, [{clause, Cl, [], [], Func_forms_2}]},
+	[Function | Gen_funs];
+replace_call(Form) ->
+	Form.
+
+expand_calls_to_repeat(Name,
+					   {call, Ca, {remote, _, {atom, _, horse}, {atom, _, repeat}}, [
+						Repeat,
+						Expr
+					   ]},
+					   Acc) when Repeat > 0 ->
+	{GenName, Gen_function} = gen_iterator_function(Name, Ca, Expr),
+	Form = {call, Ca, {atom, Ca, GenName}, [Repeat]},
+	{Form, [Gen_function | Acc]};
+expand_calls_to_repeat(_, Other, Acc) ->
+	{Other,Acc}.
+
+gen_iterator_function(Name, Ca, Expr) ->
 	GenName = list_to_atom("generated_" ++ atom_to_list(Name)),
-	[
-		{function, Fu, Name, 0, [
-			{clause, Cl, [], [], [
-				{call, Ca, {atom, Ca, GenName}, [Repeat]}
-			]}
-		]},
+	Gen_function =
 		{function, Ca, GenName, 1, [
 			{clause, Ca, [{integer, Ca, 0}], [], [
 				{atom, Ca, ok}
@@ -54,7 +69,5 @@ replace_call(
 					{op, Ca, '-', {var, Ca, 'N'}, {integer, Ca, 1}}
 				]}
 			]}
-		]}
-	];
-replace_call(Form) ->
-	Form.
+		]},
+	{GenName, Gen_function}.
