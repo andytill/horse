@@ -35,8 +35,6 @@ mod_perf(Mod) when is_atom(Mod) ->
 	ok.
 
 fun_perf(Mod, Fun) when is_atom(Mod), is_atom(Fun) ->
-	%% Dry run.
-	_ = Mod:Fun(),
 	%% Proper run.
 	Before = os:timestamp(),
 	_Val = Mod:Fun(),
